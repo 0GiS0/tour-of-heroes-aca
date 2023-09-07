@@ -32,11 +32,7 @@ az containerapp create \
   --ingress internal \
   --target-port 1433
 
-# List container apps
-az containerapp list \
---resource-group $RESOURCE_GROUP \
---environment $CONTAINERAPPS_ENVIRONMENT \
--o table
+
 
 # Check SQL Server logs
 az containerapp logs show -n sqlserver -g $RESOURCE_GROUP
@@ -46,11 +42,10 @@ az containerapp create \
   --name api \
   --resource-group $RESOURCE_GROUP \
   --environment $CONTAINERAPPS_ENVIRONMENT \
-  --image ghcr.io/0gis0/tour-of-heroes-dotnet-api/tour-of-heroes-api:0304097 \
+  --image ghcr.io/0gis0/tour-of-heroes-dotnet-api/tour-of-heroes-api:f90ed80 \
   --ingress external \
   --target-port 5000 \
-  --env-vars 'ConnectionStrings__DefaultConnection=Server=tcp:sqlserver,1433;Initial Catalog=heroes;Persist Security Info=False;User ID=sa;Password=Password1!;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;' \
-  --allow-insecure true
+  --env-vars 'ConnectionStrings__DefaultConnection=Server=tcp:sqlserver,1433;Initial Catalog=heroes;Persist Security Info=False;User ID=sa;Password=Password1!;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;'
 
 # Check API logs
 az containerapp logs show -n api -g $RESOURCE_GROUP
@@ -61,7 +56,7 @@ ls
 
 # Deploy Angular app
 az containerapp create \
-  --name angular \
+  --name frontend \
   --resource-group $RESOURCE_GROUP \
   --environment $CONTAINERAPPS_ENVIRONMENT \
   --image ghcr.io/0gis0/tour-of-heroes-angular/tour-of-heroes-angular:d39626e \
@@ -74,3 +69,9 @@ az containerapp create \
 
 # Check frontend logs
 az containerapp logs show -n angular -g $RESOURCE_GROUP
+
+# List container apps
+az containerapp list \
+--resource-group $RESOURCE_GROUP \
+--environment $CONTAINERAPPS_ENVIRONMENT \
+-o table
