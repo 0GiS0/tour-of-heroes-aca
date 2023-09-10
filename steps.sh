@@ -62,7 +62,7 @@ az containerapp create \
   --name frontend \
   --resource-group $RESOURCE_GROUP \
   --environment $CONTAINERAPPS_ENVIRONMENT \
-  --image ghcr.io/0gis0/tour-of-heroes-angular/tour-of-heroes-angular:d39626e \
+  --image ghcr.io/0gis0/tour-of-heroes-angular:main \
   --min-replicas 1 \
   --max-replicas 5 \
   --ingress external \
