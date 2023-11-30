@@ -7,6 +7,9 @@ KEYVAULT_NAME="heroes-kv"
 SQL_CONTAINER_APP_NAME="sqlserver"
 API_CONTAINER_APP_NAME="api"
 FRONTEND_CONTAINER_APP_NAME="frontend"
+STORAGE_ACCOUNT_NAME="heroesdata"
+STORAGE_SHARE_NAME="sqldata"
+STORAGE_MOUNT_NAME="sqlserver-data"
 
 # Add container app extension
 az extension add --name containerapp --upgrade
@@ -96,6 +99,42 @@ az containerapp env create \
   --location $LOCATION \
   --infrastructure-subnet-resource-id $SUBNET_ID
 
+# Create an Azure Storage account
+az storage account create \
+  --name $STORAGE_ACCOUNT_NAME \
+  --resource-group $RESOURCE_GROUP \
+  --location $LOCATION \
+  --sku Standard_LRS \
+  --enable-large-file-share \
+  --kind StorageV2
+
+# Create an Azure File Share
+az storage share-rm create \
+  --resource-group $RESOURCE_GROUP \
+  --storage-account $STORAGE_ACCOUNT_NAME \
+  --name $STORAGE_SHARE_NAME \
+  --quota 1024 \
+  --enabled-protocols SMB \
+  --output table
+
+# Get storage account key
+STORAGE_ACCOUNT_KEY=$(az storage account keys list \
+  --resource-group $RESOURCE_GROUP \
+  --account-name $STORAGE_ACCOUNT_NAME \
+  --query "[0].value" \
+  --output tsv)
+
+# Create the storage mount
+az containerapp env storage set \
+  --access-mode ReadWrite \
+  --azure-file-account-name $STORAGE_ACCOUNT_NAME \
+  --azure-file-account-key $STORAGE_ACCOUNT_KEY \
+  --azure-file-share-name $STORAGE_SHARE_NAME \
+  --storage-name $STORAGE_MOUNT_NAME \
+  --name $CONTAINERAPPS_ENVIRONMENT \
+  --resource-group $RESOURCE_GROUP \
+  --output table
+
 # Create SQL Server container
 az containerapp create \
   --name $SQL_CONTAINER_APP_NAME \
@@ -112,7 +151,14 @@ az containerapp create \
   --target-port 1433 \
   --exposed-port 1433 \
   --cpu 1.0 \
-  --memory 2.0Gi
+  --memory 2.0Gi \
+  --output yaml > sqlserver.yaml
+
+az containerapp update \
+  --name $SQL_CONTAINER_APP_NAME \
+  --resource-group $RESOURCE_GROUP \
+  --yaml sqlserver.yaml \
+  --output table
 
 # Check SQL Server logs
 az containerapp logs show -n $SQL_CONTAINER_APP_NAME -g $RESOURCE_GROUP
@@ -121,7 +167,7 @@ az containerapp logs show -n $SQL_CONTAINER_APP_NAME -g $RESOURCE_GROUP
 API_FQDN=$(az containerapp create \
   --name $API_CONTAINER_APP_NAME \
   --resource-group $RESOURCE_GROUP \
-  --environment $CONTAINERAPPS_ENVIRONMENT \  
+  --environment $CONTAINERAPPS_ENVIRONMENT \
   --max-replicas 10 \
   --image ghcr.io/0gis0/tour-of-heroes-dotnet-api/tour-of-heroes-api:fd0c343 \
   --ingress external \

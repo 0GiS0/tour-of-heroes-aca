@@ -1,4 +1,4 @@
-@baseUrl = https://api.blacksea-941781a5.westeurope.azurecontainerapps.io/api/hero
+@baseUrl = https://api.greenmushroom-d2bfd1b6.westeurope.azurecontainerapps.io/api/hero
 
 ###
 GET {{baseUrl}} HTTP/1.1
