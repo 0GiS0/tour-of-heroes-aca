@@ -42,10 +42,10 @@ az containerapp create \
   --name api \
   --resource-group $RESOURCE_GROUP \
   --environment $CONTAINERAPPS_ENVIRONMENT \
-  --image ghcr.io/0gis0/tour-of-heroes-dotnet-api/tour-of-heroes-api:f0a9419 \
+  --image ghcr.io/0gis0/tour-of-heroes-dotnet-api/tour-of-heroes-api:f90ed80 \
   --ingress external \
   --target-port 5000 \
-  --env-vars 'ConnectionStrings__DefaultConnection=Server=tcp:sqlserver,1433;Initial Catalog=heroes;Persist Security Info=False;User ID=sa;Password=Password1!;MultipleActiveResultSets=False;Encrypt=False;TrustServerCertificate=False;Connection Timeout=30;'
+  --env-vars 'ConnectionStrings__DefaultConnection=Server=tcp:sqlserver,1433;Initial Catalog=heroes;Persist Security Info=False;User ID=sa;Password=Password1!;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;'
 
 # Check API logs
 az containerapp logs show -n api -g $RESOURCE_GROUP
@@ -54,21 +54,18 @@ az containerapp logs show -n api -g $RESOURCE_GROUP
 az containerapp exec -n api -g $RESOURCE_GROUP --command bash
 ls
 
-# Get API FQDN
-API_FQDN=$(az containerapp show -n api -g $RESOURCE_GROUP --query 'properties.configuration.ingress.fqdn' -o tsv)
-
 # Deploy Angular app
 az containerapp create \
   --name frontend \
   --resource-group $RESOURCE_GROUP \
   --environment $CONTAINERAPPS_ENVIRONMENT \
-  --image ghcr.io/0gis0/tour-of-heroes-angular:main \
+  --image ghcr.io/0gis0/tour-of-heroes-angular/tour-of-heroes-angular:d39626e \
   --min-replicas 1 \
   --max-replicas 5 \
   --ingress external \
   --target-port 80 \
   --exposed-port 80 \
-  --env-vars "API_URL=https://$API_FQDN/api/hero"
+  --env-vars 'API_URL=http://api:5000'
 
 # Check frontend logs
 az containerapp logs show -n angular -g $RESOURCE_GROUP
