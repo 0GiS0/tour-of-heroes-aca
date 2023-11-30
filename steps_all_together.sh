@@ -135,6 +135,9 @@ API_FQDN=$(az containerapp create \
   --query "properties.configuration.ingress.fqdn" \
   --output tsv)
 
+# Use this to call the API with the client.http file
+echo "https://$API_FQDN/api/hero"
+
 # Split your terminal and execute this command to watch how the replicas are scaled
 watch -n 5 az containerapp replica count --name $API_CONTAINER_APP_NAME --resource-group $RESOURCE_GROUP
 
@@ -168,8 +171,6 @@ FRONTEND_FQDN=$(az containerapp create \
   --query "properties.configuration.ingress.fqdn" \
   --output tsv)
 
-echo "https://$FRONTEND_FQDN"
-
 # Create a new revision of the frontend
 FRONTEND_FQDN=$(az containerapp create \
   --name frontend \
@@ -186,15 +187,6 @@ FRONTEND_FQDN=$(az containerapp create \
   --query "properties.configuration.ingress.fqdn" \
   --output tsv)
 
-echo "https://$FRONTEND_FQDN"
-
-#give that revision a 'pics' label
-az containerapp revision label add \
-  --name $FRONTEND_CONTAINER_APP_NAME \
-  --resource-group $RESOURCE_GROUP \
-  --label pics \
-  --revision frontend--pics
-
 # Traffic Split
 az containerapp ingress traffic set \
   --name $FRONTEND_CONTAINER_APP_NAME \
@@ -205,6 +197,8 @@ az containerapp ingress traffic show \
   --name $FRONTEND_CONTAINER_APP_NAME \
   --resource-group $RESOURCE_GROUP
   
+echo "https://$FRONTEND_FQDN"
+
 # Check frontend logs
 az containerapp logs show -n $FRONTEND_CONTAINER_APP_NAME -g $RESOURCE_GROUP
 
