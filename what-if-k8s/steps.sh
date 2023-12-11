@@ -277,19 +277,17 @@ kubectl logs -n kube-system -l app.kubernetes.io/component=operator,app.kubernet
 # Watch tour of heroes api replicas
 watch kubectl get pods  -n tour-of-heroes
 
-# Load test the application
-brew install hey
-# 
-# curl  http://20.54.216.159/api/hero -H 'Host: tour-of-heroes.com'
-
 # Port forward to the KEDA http interceptor
 kubectl port-forward svc/keda-add-ons-http-interceptor-proxy 8080:8080 -n kube-system
 
+# Load test the application
+brew install hey 
+
 curl  http://localhost:8080/api/hero -H 'Host: tour-of-heroes.com'
-echo "http://localhost:8080/api/hero" | xargs -I % -P 10 curl -H 'Host: tour-of-heroes.com' %
 
 hey -n 100000 -host "tour-of-heroes.com" http://localhost:8080/api/hero
 
+# Check pending requests
 kubectl proxy -p 8002
 watch curl -L localhost:8002/api/v1/namespaces/kube-system/services/keda-add-ons-http-interceptor-admin:9090/proxy/queue
 
