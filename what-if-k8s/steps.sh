@@ -101,11 +101,9 @@ ALB_SUBNET_ID=$(az network vnet subnet show --name $ALB_SUBNET_NAME --resource-g
 
 # ALB Controller needs the ability to provision new Application Gateway for Containers resources and to join the subnet intended for the Application Gateway for Containers association resource.
 # Delegate AppGw for Containers Configuration Manager role to AKS Managed Cluster RG
-az role definition list --name "fbc52c3f-28ad-4303-a892-8a056630b8f1"  --query '[].{Name:roleName,Description:description}' -o table
 az role assignment create --assignee-object-id $ALB_IDENTITY_PRINCIPAL_ID --assignee-principal-type ServicePrincipal --scope $AKS_RESOURCE_GROUP_ID --role "AppGw for Containers Configuration Manager" 
 
 # Delegate Network Contributor permission for join to association subnet
-az role definition list --name "4d97b98b-1d4f-4787-a291-c67834d212e7" --query '[].{Name:roleName,Description:description}' -o table
 az role assignment create --assignee-object-id $ALB_IDENTITY_PRINCIPAL_ID --assignee-principal-type ServicePrincipal --scope $ALB_SUBNET_ID --role "Network Contributor" 
 
 
@@ -136,9 +134,9 @@ kubectl get applicationloadbalancer alb-for-heroes -n tour-of-heroes -o yaml -w
 # Now test with tour of heroes
 kubectl apply -f what-if-k8s/. --recursive -n tour-of-heroes
 
-kubectl get pods -n tour-of-heroes -w
+watch kubectl get pods -n tour-of-heroes 
 
-# Deploy the required Gateway API resources
+# Generate a frontend in the App Gw for containers for the frontend
 kubectl apply -f - <<EOF
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
@@ -191,7 +189,115 @@ fqdn=$(kubectl get gateway tour-of-heroes-gateway -n default -o jsonpath='{.stat
 
 echo "https://$fqdn"
 
+kubectl apply -f - <<EOF
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  name: tour-of-heroes-api-gateway
+  namespace: tour-of-heroes
+  annotations:
+    alb.networking.azure.io/alb-namespace: tour-of-heroes
+    alb.networking.azure.io/alb-name: alb-for-heroes
+spec:
+  gatewayClassName: azure-alb-external
+  listeners:
+  - name: http
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: Same
+EOF
+
+# Create a route to the API
+kubectl apply -f - <<EOF
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: api-route
+  namespace: tour-of-heroes
+spec:
+  parentRefs:
+  - name: tour-of-heroes-api-gateway
+  rules:
+  - backendRefs:
+    - name: tour-of-heroes-api
+      port: 80
+EOF
+
+# Check http route
+kubectl get httproute api-route -n tour-of-heroes -o yaml
+
+# Get the API FQDN
+api_fqdn=$(kubectl get gateway tour-of-heroes-api-gateway -n tour-of-heroes -o jsonpath='{.status.addresses[0].value}')
+
+echo "http://$api_fqdn/api/hero"
+
 ##########################################################################################
 ############################## Configure KEDA for autoscaling ############################
 ##########################################################################################
 
+# Check if KEDA is installed
+kubectl get pods -n kube-system | grep keda
+
+# Install http-add-on (https://keda.sh/blog/2021-06-24-announcing-http-add-on/)
+helm repo add kedacore https://kedacore.github.io/charts
+helm repo update
+helm install -n kube-system http-add-on kedacore/keda-add-ons-http
+
+# Scale based on HTTP requests to the API
+kubectl apply -f - <<EOF
+apiVersion: http.keda.sh/v1alpha1
+kind: HTTPScaledObject
+metadata:
+  name: http-scaledobject
+  namespace: tour-of-heroes
+spec:
+  hosts: 
+  - tour-of-heroes.com    
+  scaleTargetRef:
+    deployment: tour-of-heroes-api
+    service: tour-of-heroes-api
+    port: 80
+  targetPendingRequests: 10
+  replicas:
+    min: 0
+    max: 10
+EOF
+
+kubectl get httpscaledobject -n tour-of-heroes
+kubectl describe httpscaledobject -n tour-of-heroes
+kubectl get hpa -n tour-of-heroes
+
+kubectl get pods -n kube-system | grep keda
+
+# Check logs of a pod with these labels: app.kubernetes.io/component=operator and app.kubernetes.io/instance=http-add-on
+kubectl logs -n kube-system -l app.kubernetes.io/component=operator,app.kubernetes.io/instance=http-add-on -c keda-add-ons-http-operator
+
+# Watch tour of heroes api replicas
+watch kubectl get pods  -n tour-of-heroes
+
+# Load test the application
+brew install hey
+# 
+# curl  http://20.54.216.159/api/hero -H 'Host: tour-of-heroes.com'
+
+# Port forward to the KEDA http interceptor
+kubectl port-forward svc/keda-add-ons-http-interceptor-proxy 8080:8080 -n kube-system
+
+curl  http://localhost:8080/api/hero -H 'Host: tour-of-heroes.com'
+echo "http://localhost:8080/api/hero" | xargs -I % -P 10 curl -H 'Host: tour-of-heroes.com' %
+
+hey -n 100000 -host "tour-of-heroes.com" http://localhost:8080/api/hero
+
+kubectl proxy -p 8002
+watch curl -L localhost:8002/api/v1/namespaces/kube-system/services/keda-add-ons-http-interceptor-admin:9090/proxy/queue
+
+# Check the HPA
+kubectl get hpa -n tour-of-heroes
+
+# Check the pods
+kubectl get pods -n tour-of-heroes
+
+# Check KEDA logs
+kubectl logs -n kube-system -l app=keda-operator

@@ -16,7 +16,8 @@ spec:
         app: tour-of-heroes-web
     spec:
       containers:
-      - image: ghcr.io/0gis0/tour-of-heroes-angular/tour-of-heroes-angular:d39626e
+      - image: ghcr.io/0gis0/tour-of-heroes-angular:main
+        imagePullPolicy: Always
         name: tour-of-heroes-web
         env:
           - name: API_URL
@@ -24,3 +25,10 @@ spec:
         ports:
         - containerPort: 5000
           name: web
+        resources:
+          limits:
+            cpu: "0.5"
+            memory: "512Mi"
+          requests:
+            cpu: "0.1"
+            memory: "256Mi" 
