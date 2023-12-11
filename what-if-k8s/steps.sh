@@ -3,6 +3,15 @@ RESOURCE_GROUP="what-if-k8s"
 LOCATION="westeurope"
 AKS_NAME="k8s-vs-aca"
 
+# Enable Cluster Cost Analysis
+az feature register --namespace "Microsoft.ContainerService" --name "ClusterCostAnalysis"
+
+# Check the registration status
+az feature list -o table --query "[?contains(name, 'Microsoft.ContainerService/ClusterCostAnalysis')].{Name:name,State:properties.state}"
+
+# When the status reflects Registered, refresh the registration of the Microsoft.ContainerService resource provider
+az provider register --namespace Microsoft.ContainerService
+
 # Create resource group
 az group create --name $RESOURCE_GROUP --location $LOCATION
 
@@ -10,8 +19,10 @@ az group create --name $RESOURCE_GROUP --location $LOCATION
 az aks create \
 --resource-group $RESOURCE_GROUP \
 --name $AKS_NAME \
+--tier standard \
 --node-vm-size Standard_B4ms \
 --enable-keda \
+--enable-cost-analysis \
 --network-plugin azure \
 --enable-oidc-issuer \
 --enable-workload-identity \
