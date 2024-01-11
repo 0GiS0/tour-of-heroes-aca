@@ -7,7 +7,7 @@ KEYVAULT_NAME="heroes-kv"
 SQL_CONTAINER_APP_NAME="sqlserver"
 API_CONTAINER_APP_NAME="api"
 FRONTEND_CONTAINER_APP_NAME="frontend"
-STORAGE_ACCOUNT_NAME="heroesdata"
+STORAGE_ACCOUNT_NAME="heroesdatos"
 STORAGE_SHARE_NAME="sqldata"
 STORAGE_MOUNT_NAME="sqlserver-data"
 
@@ -75,6 +75,7 @@ SQL_IDENTITY_ID=$(az identity create \
 # Give permissions to the managed identity to read the secret
 az keyvault set-policy \
   --name $KEYVAULT_NAME \
+  --resource-group $RESOURCE_GROUP \
   --object-id $(az identity show --id $SQL_IDENTITY_ID --query principalId --output tsv) \
   --secret-permissions get
 
@@ -88,7 +89,8 @@ API_IDENTITY_ID=$(az identity create \
 
 # Give permissions to the managed identity to read the secret
 az keyvault set-policy \
-  --name heroes-kv \
+  --name $KEYVAULT_NAME \
+  --resource-group $RESOURCE_GROUP \
   --object-id $(az identity show --id $API_IDENTITY_ID --query principalId --output tsv) \
   --secret-permissions get
 
@@ -154,6 +156,8 @@ az containerapp create \
   --memory 2.0Gi \
   --output yaml > sqlserver.yaml
 
+# Update SQL Server container
+
 az containerapp update \
   --name $SQL_CONTAINER_APP_NAME \
   --resource-group $RESOURCE_GROUP \
@@ -161,7 +165,7 @@ az containerapp update \
   --output table
 
 # Check SQL Server logs
-az containerapp logs show -n $SQL_CONTAINER_APP_NAME -g $RESOURCE_GROUP
+az containerapp logs show -n $SQL_CONTAINER_APP_NAME -g $RESOURCE_GROUP --tail 100
 
 # Deploy the API
 API_FQDN=$(az containerapp create \
@@ -178,6 +182,13 @@ API_FQDN=$(az containerapp create \
   --user-assigned $API_IDENTITY_ID \
   --secrets "connection-string=keyvaultref:$SQL_SECRET_ID,identityref:$API_IDENTITY_ID" \
   --env-vars "ConnectionStrings__DefaultConnection=secretref:connection-string" \
+  --query "properties.configuration.ingress.fqdn" \
+  --output tsv)
+
+# Get API FQDN
+API_FQDN=$(az containerapp show \
+  --name $API_CONTAINER_APP_NAME \
+  --resource-group $RESOURCE_GROUP \
   --query "properties.configuration.ingress.fqdn" \
   --output tsv)
 
@@ -223,7 +234,7 @@ FRONTEND_FQDN=$(az containerapp create \
   --resource-group $RESOURCE_GROUP \
   --environment $CONTAINERAPPS_ENVIRONMENT \
   --image ghcr.io/0gis0/tour-of-heroes-angular:heroes-with-pics \
-  --min-replicas 1 \  
+  --min-replicas 1 \
   --ingress external \
   --target-port 80 \
   --exposed-port 80 \

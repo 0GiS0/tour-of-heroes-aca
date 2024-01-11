@@ -3,6 +3,9 @@ RESOURCE_GROUP="what-if-k8s"
 LOCATION="westeurope"
 AKS_NAME="k8s-vs-aca"
 
+# Update aks-preview extension
+az extension add --name aks-preview
+
 # Enable Cluster Cost Analysis
 az feature register --namespace "Microsoft.ContainerService" --name "ClusterCostAnalysis"
 
@@ -145,7 +148,7 @@ kubectl get applicationloadbalancer alb-for-heroes -n tour-of-heroes -o yaml -w
 # Now test with tour of heroes
 kubectl apply -f what-if-k8s/. --recursive -n tour-of-heroes
 
-watch kubectl get pods -n tour-of-heroes 
+watch kubectl get pods -n tour-of-heroes
 
 # Generate a frontend in the App Gw for containers for the frontend
 kubectl apply -f - <<EOF
@@ -196,7 +199,7 @@ kubectl get httproute traffic-split-route -n tour-of-heroes -o yaml
 kubectl get httproute
 
 # Test the application
-fqdn=$(kubectl get gateway tour-of-heroes-gateway -n default -o jsonpath='{.status.addresses[0].value}')
+fqdn=$(kubectl get gateway tour-of-heroes-gateway -n tour-of-heroes -o jsonpath='{.status.addresses[0].value}')
 
 echo "https://$fqdn"
 
