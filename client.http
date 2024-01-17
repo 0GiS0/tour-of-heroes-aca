@@ -1,4 +1,4 @@
-@baseUrl = https://api.happycliff-b0e28cdd.westeurope.azurecontainerapps.io/api/hero
+@baseUrl = https://api.wonderfuldune-8045bc5f.westeurope.azurecontainerapps.io/api/hero
 
 ###
 GET {{baseUrl}} HTTP/1.1

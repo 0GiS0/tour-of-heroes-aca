@@ -200,7 +200,7 @@ watch -n 5 az containerapp replica count --name $API_CONTAINER_APP_NAME --resour
 
 # Execute a load test
 brew install hey
-hey -z 60s -c 5 https://$API_FQDN
+hey -z 60s -c 5 https://$API_FQDN/api/hero
 
 # After load test finishes, wait for a while to see how replicas are scaled down
 # Check this doc about scale behaviour: https://learn.microsoft.com/en-us/azure/container-apps/scale-app?pivots=azure-cli#scale-behavior
